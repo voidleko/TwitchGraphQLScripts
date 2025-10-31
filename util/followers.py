@@ -1,6 +1,7 @@
 import requests
 import json
 import sys
+import pprint
 from typing import Optional, List
 from dataclasses import dataclass
 from datetime import datetime
@@ -31,16 +32,15 @@ query fetchUser($id: ID, $login: String, $first: Int = 100, $after: Cursor) {
 """
 
 
-def get_followers(streamer: str) -> Optional[List[FollowerData]]:
+def get_followers(streamer: str, logging: bool = False) -> Optional[List[FollowerData]]:
 	session = requests.Session()
 	cursor = None
 	result = []
-	pagenum = 0
 
 	while True:
-		pagenum += 1
-		print(f"[LOG] loading followers, page {pagenum}")
-		
+		if logging:
+			print(f"[LOG:{streamer}] Loaded {len(result)} results")
+
 		response = session.post(
 			url=API_URL,
 			json={
@@ -55,7 +55,7 @@ def get_followers(streamer: str) -> Optional[List[FollowerData]]:
 			})
 
 		if response.status_code != 200:
-			print(f"Failed request: exit code = {response.status_code}")
+			print(f"[ERROR] Failed request: exit code = {response.status_code}")
 			print(response.text)
 
 			return None
@@ -68,7 +68,11 @@ def get_followers(streamer: str) -> Optional[List[FollowerData]]:
 
 					if follower_json['node'] is None:
 						# Deleted account
-						continue
+						name = ""
+						followed_at = datetime.fromisoformat(follower_json['followedAt'])
+						created_at = datetime.now()
+						follower = FollowerData(name=name, created_at=created_at, followed_at=followed_at)
+						result.append(follower)
 					else:
 						name = follower_json['node']['login']
 						followed_at = datetime.fromisoformat(follower_json['followedAt'])
@@ -76,10 +80,11 @@ def get_followers(streamer: str) -> Optional[List[FollowerData]]:
 						follower = FollowerData(name=name, created_at=created_at, followed_at=followed_at)
 						result.append(follower)
 
-				if not data['data']['user']['followers']['pageInfo']['hasNextPage']:
+				if not data['data']['user']['followers']['pageInfo']['hasNextPage'] or cursor == '':
 					break
-			except:
-				print("Failed: invalid response format")
+			except Exception as ex:
+				print("[ERROR] Failed: invalid response format for", streamer)
+				print("[ERROR]", ex)
 				print(response.text)
 
 				return None
