@@ -258,7 +258,6 @@ moereira
 laliqtako
 sheeppyoz
 yui2d
-morgi_mori
 tremchan
 yuislime
 aerochannelekat
@@ -279,8 +278,6 @@ foxy_larimar
 theiathedraco
 manyamillio
 nnstreamercha
-# Other
-morgi_mori
 # Search via vtuber tags 31.10.2025
 nyamuras
 satyrra
@@ -314,3 +311,21 @@ nitesmi
 miliraybrick
 kaomurra
 blinchii
+# Search via vtubers tag 01.11.2025
+yui_morgan
+ooh_lulu
+ioshi_kaino_
+marffa_
+novikony_
+annioka
+5creppa
+ioshi_kaino_
+sumin207
+v_o_r_o_b
+kessy_cry
+iris_ti
+henmimori
+sunjayho
+miwi_dragon
+katsumi__chan
+eboni_inobe

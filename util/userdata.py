@@ -1,9 +1,8 @@
 import requests
-import pprint
 import json
-from datetime import datetime
-from typing import Optional, List
-from data import UserData, FollowData
+import sys
+from typing import Optional
+from data import UserData, json_to_user_data
 from api import API_URL, API_CLIENT_ID
 
 FOLLOWERS_REQUEST_BODY = """
@@ -13,22 +12,15 @@ query fetchUser($id: ID, $login: String) {
     login
     createdAt
     deletedAt
-    follows(first: 100) {
+    follows {
         totalCount
-        edges {
-            followedAt
-            node {
-                id
-                login
-            }
-        }
     }
   }
 }
 """
 
 
-def get_userdata(id: int) -> UserData:
+def get_userdata(id: int) -> Optional[UserData]:
     session = requests.Session()
 
     response = session.post(
@@ -42,36 +34,19 @@ def get_userdata(id: int) -> UserData:
         headers={
             "Client-ID": API_CLIENT_ID
         })
-    
     assert response.status_code == 200
     
     data = json.loads(response.text)
     if data['data']['user'] is None:
         return None
 
-    id = data['data']['user']['id']
-    login = data['data']['user']['login']
-    createdAt = data['data']['user']['createdAt']
-    deletedAt = data['data']['user']['deletedAt']
-    totalCount = data['data']['user']['follows']['totalCount']
-    follows = []
-    for fdata in data['data']['user']['follows']['edges']:
-        followedAt = fdata['followedAt']
-        fid = fdata['node']['id']
-        flogin = fdata['node']['login']
-        follows.append(FollowData(id=int(fid),
-                                  login=flogin,
-                                  followedAt=datetime.fromisoformat(followedAt)))
+    user_data = data['data']['user']
+    user = json_to_user_data(user_data)
 
-    return UserData(id=int(id),
-                    login=login,
-                    createdAt=datetime.fromisoformat(createdAt),
-                    deletedAt=None if deletedAt is None else datetime.fromisoformat(deletedAt),
-                    totalCount=int(totalCount),
-                    follows=follows)
+    return user
 
 
-def get_userdata_by_login(login: str) -> UserData:
+def get_userdata_by_login(login: str) -> Optional[UserData]:
     session = requests.Session()
 
     response = session.post(
@@ -91,24 +66,19 @@ def get_userdata_by_login(login: str) -> UserData:
     data = json.loads(response.text)
     if data['data']['user'] is None:
         return None
+    
+    data = json.loads(response.text)
+    if data['data']['user'] is None:
+        return None
 
-    id = data['data']['user']['id']
-    login = data['data']['user']['login']
-    createdAt = data['data']['user']['createdAt']
-    deletedAt = data['data']['user']['deletedAt']
-    totalCount = data['data']['user']['follows']['totalCount']
-    follows = []
-    for fdata in data['data']['user']['follows']['edges']:
-        followedAt = fdata['followedAt']
-        fid = fdata['node']['id']
-        flogin = fdata['node']['login']
-        follows.append(FollowData(id=int(fid),
-                                  login=flogin,
-                                  followedAt=datetime.fromisoformat(followedAt)))
+    user_data = data['data']['user']
+    user = json_to_user_data(user_data)
 
-    return UserData(id=int(id),
-                    login=login,
-                    createdAt=datetime.fromisoformat(createdAt),
-                    deletedAt=None if deletedAt is None else datetime.fromisoformat(deletedAt),
-                    totalCount=int(totalCount),
-                    follows=follows)
+    return user
+
+
+if __name__ == "__main__":
+	if len(sys.argv) == 2:
+		print(get_userdata_by_login(sys.argv[1]))
+	else:
+		print("Ivalid run format")
