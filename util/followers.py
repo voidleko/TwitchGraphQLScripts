@@ -10,7 +10,7 @@ from data import FollowerData, json_to_follower_data
 API_URL = "https://gql.twitch.tv/gql"
 API_CLIENT_ID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp"
 FOLLOWERS_REQUEST_BODY = """
-query fetchUser($id: ID, $login: String, $first: Int = 50, $after: Cursor) {
+query fetchUser($id: ID, $login: String, $first: Int = 100, $after: Cursor) {
   user(id: $id, login: $login, lookupType: ALL) {
     followers(first: $first, after: $after) {
       totalCount
@@ -39,14 +39,18 @@ query fetchUser($id: ID, $login: String, $first: Int = 50, $after: Cursor) {
 """
 
 
-def send_request(session: requests.Session, streamer: str, cursor: str):
-	MAX_REPEATS = 5
-	REPEAT_SLEEP = 1.0
-
-	for i in range(MAX_REPEATS):
+def send_request(session: requests.Session, 
+				 streamer: str, 
+				 cursor: str,
+				 log: bool,
+				 repeat_times: int,
+				 repeat_delay: float):
+	for i in range(repeat_times):
 		if i > 0:
-			time.sleep(REPEAT_SLEEP)
-			print("[LOG]", "Repeat last request")
+			time.sleep(repeat_delay)
+
+			if log:
+				print("[LOG]", "Repeat last request")
 
 		response = session.post(
 			url=API_URL,
@@ -62,13 +66,15 @@ def send_request(session: requests.Session, streamer: str, cursor: str):
 			})
 		
 		if response.status_code != 200:
-			print("[ERROR]", "Status code =", response.status_code)
+			if log:
+				print("[ERROR]", "Status code =", response.status_code)
 			continue
 
 		data = json.loads(response.text)
 		if 'errors' in data.keys() and len(data['errors']) > 0:
 			for error in data['errors']:
-				print("[ERROR]", error)
+				if log:
+					print("[ERROR]", error)
 			continue
 
 		return response
@@ -76,7 +82,10 @@ def send_request(session: requests.Session, streamer: str, cursor: str):
 	return None
 
 
-def get_followers(streamer: str) -> Optional[List[FollowerData]]:
+def get_followers(streamer: str,
+				  log: bool = False,
+				  repeat_times: int = 5,
+				  repeat_delay: float = 1.0) -> Optional[List[FollowerData]]:
 	session = requests.Session()
 	cursor = None
 	result = []
@@ -84,9 +93,11 @@ def get_followers(streamer: str) -> Optional[List[FollowerData]]:
 	while True:
 		print(streamer, ":", len(result))
 
-		response = send_request(session, streamer, cursor)
+		response = send_request(session, streamer, cursor, log, repeat_times, repeat_delay)
+
 		if response is None:
-			print("[ERROR]", "Failed load", streamer)
+			if log:
+				print("[ERROR]", "Failed load", streamer)
 			return None
 		
 		try:
@@ -100,7 +111,8 @@ def get_followers(streamer: str) -> Optional[List[FollowerData]]:
 			if not followers_data['pageInfo']['hasNextPage'] or cursor == '':
 				break
 		except Exception as ex:
-			print("[ERROR]", ex.__repr__())
+			if log:
+				print("[ERROR]", ex.__repr__())
 
 			return None
 
