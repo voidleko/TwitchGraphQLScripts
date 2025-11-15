@@ -1,4 +1,4 @@
-# RuVtubers analisation
+# RuVtubers analyzation
 
 Some statistics about ruvtubers community on twitch
 
