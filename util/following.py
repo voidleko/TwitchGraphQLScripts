@@ -1,15 +1,14 @@
 import requests
 import json
 import sys
+import time
 from typing import Optional, List
 from dataclasses import dataclass
 from datetime import datetime
 from data import FollowerData
+from api import API_URL, API_CLIENT_ID
 
-
-API_URL = "https://gql.twitch.tv/gql"
-API_CLIENT_ID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp"
-FOLLOWING_REQUEST_BODY = """
+FOLLOWS_REQUEST_BODY = """
 query fetchUser($id: ID, $login: String, $first: Int = 100, $after: Cursor) {
   user(id: $id, login: $login, lookupType: ALL) {
     follows(first: $first, after: $after) {
@@ -21,8 +20,16 @@ query fetchUser($id: ID, $login: String, $first: Int = 100, $after: Cursor) {
         cursor
         followedAt
         node {
-          login
-          createdAt
+			id
+			login
+			createdAt
+			deletedAt
+			follows {
+				totalCount
+			}
+			followers {
+				totalCount
+			}
         }
       }
     }
@@ -31,58 +38,82 @@ query fetchUser($id: ID, $login: String, $first: Int = 100, $after: Cursor) {
 """
 
 
-def get_following(user: str) -> Optional[List[FollowerData]]:
-	session = requests.Session()
-	cursor = None
-	result = []
-	pagenum = 0
+def send_request(session: requests.Session, 
+				 streamer: str, 
+				 cursor: str,
+				 log: bool,
+				 repeat_times: int,
+				 repeat_delay: float):
+	for i in range(repeat_times):
+		if i > 0:
+			time.sleep(repeat_delay)
 
-	while True:
-		pagenum += 1
-		print(f"[LOG] loading following, page {pagenum}")
-		
+			if log:
+				print("[LOG]", "Repeat last request")
+
 		response = session.post(
 			url=API_URL,
 			json={
-				'query': FOLLOWING_REQUEST_BODY,
+				'query': FOLLOWS_REQUEST_BODY,
 				'variables': {
-					'login': user,
+					'login': streamer,
 					'after': cursor
 				}
 			},
 			headers={
 				"Client-ID": API_CLIENT_ID
 			})
-
+		
 		if response.status_code != 200:
-			print(f"Failed request: exit code = {response.status_code}")
-			print(response.text)
+			if log:
+				print("[ERROR]", "Status code =", response.status_code)
+			continue
+
+		data = json.loads(response.text)
+		if 'errors' in data.keys() and len(data['errors']) > 0:
+			for error in data['errors']:
+				if log:
+					print("[ERROR]", error)
+			continue
+
+		return response
+	
+	return None
+
+
+def get_following(streamer: str,
+				  log: bool = False,
+				  repeat_times: int = 5,
+				  repeat_delay: float = 1.0) -> Optional[List[FollowerData]]:
+	session = requests.Session()
+	cursor = None
+	result = []
+
+	while True:
+		print(streamer, ":", len(result))
+
+		response = send_request(session, streamer, cursor, log, repeat_times, repeat_delay)
+
+		if response is None:
+			if log:
+				print("[ERROR]", "Failed load", streamer)
+			return None
+		
+		try:
+			data = json.loads(response.text)
+			followers_data = data['data']['user']['followers']
+			for follower_data in followers_data['edges']:
+				cursor = follower_data['cursor']
+				follower = json_to_follower_data(follower_data)
+				result.append(follower)
+
+			if not followers_data['pageInfo']['hasNextPage'] or cursor == '':
+				break
+		except Exception as ex:
+			if log:
+				print("[ERROR]", ex.__repr__())
 
 			return None
-		else:
-			try:
-				data = json.loads(response.text)
-
-				for follower_json in data['data']['user']['follows']['edges']:
-					cursor = follower_json['cursor']
-
-					if follower_json['node'] is None:
-						# Deleted account
-						continue
-					else:
-						name = follower_json['node']['login']
-						followed_at = datetime.fromisoformat(follower_json['followedAt'])
-						created_at = datetime.fromisoformat(follower_json['node']['createdAt'])
-						follower = FollowerData(name=name, created_at=created_at, followed_at=followed_at)
-						result.append(follower)
-
-				if not data['data']['user']['follows']['pageInfo']['hasNextPage']:
-					break
-			except Exception as e:
-				print("Failed: invalid response format")
-				print(response.text)
-
-				return None
 
 	return result
 

@@ -141,7 +141,7 @@
 769052559 # holographicvt
 127202851 # tomoesin
 940113853 # fluffypaww
-752098948 # jay_ho_kaino
+752098948 # jay_hosha
 119598875 # d_e_l_y
 762097698 # aoihinodevt
 716416209 # yumekomoore
@@ -195,7 +195,7 @@
 888552576 # maria_ai_
 690363706 # xquinella
 873669971 # amelialavert
-957422277 # tressa_ri
+957422277 # baxieoff
 505595098 # perolya
 97925811 # goosekina
 118488709 # miyuchiiro
@@ -262,7 +262,7 @@
 179281887 # madam_gribochek
 717083904 # torusava
 805628885 # oki_toda
-570539757 # minacorgi_art
+570539757 # minacorgi
 191487197 # keensh1r0
 522129510 # shani_0w0
 732514830 # ulya_nya
@@ -311,7 +311,6 @@
 190559377 # lisenochek5
 1293988345 # w1mhack
 167772989 # bumajk4
-455344609 # shinrii
 504964161 # clara__rar
 879326230 # kasikomee
 174751974 # yo_na_bi
@@ -320,7 +319,7 @@
 557341058 # ellysteiny
 540235610 # yohelly
 1008418226 # myafsu
-704594734 # yukki_haruvt
+704594734 # yukkithejaba
 148437949 # blyoka
 405916507 # egorzerotwo
 983753786 # yerurie
@@ -328,18 +327,17 @@
 774807138 # meow_toki
 1117195624 # alis__ris
 43834337 # raison1detre
-511656312 # hahatoxxxic
+511656312 # kumagainana
 242507355 # fittsme
 203813764 # mupulut
 218427574 # newlyk
 1050931824 # di_hexblade
 1058527558 # witchcvn
 773079009 # myavkins
-99953929 # kazelina
 632157174 # insgex
 280537500 # kaico_
 1063116560 # purple_keria
-474121924 # myatatw
+474121924 # hikkalika
 443076300 # lordofmysteri
 237025023 # torinoshiro
 36817950 # sliverel
@@ -368,7 +366,15 @@
 87460235 # krisophrenia
 165904777 # ravenyan
 502510172 # ciberkrisa
-444480636 # mi_yeo_nii
+444480636 # mi_yeo_nii_kaino
+743069402 # hisokamortimer
+91900382 # shinril
+250219697 # kazellna
+56839586 # klda
+25280677 # kibcharnnel
+107193803 # silgestian
+736098034 # memumemumemumemu
+799711764 # viennarein
 # e_wexy
 # Lady_Skeify
 # luma_rum
