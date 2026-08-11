@@ -28,11 +28,11 @@
 
 #### Разрешая парные кластеры
 
-[vtuber_clusterisation_HDBSCAN_3+.html](vtuber_clusterisation_HDBSCAN_3+.html)
+[vtuber_clusterisation_HDBSCAN_2+.html](vtuber_clusterisation_HDBSCAN_2+.html)
 
 #### Запрещая парные кластеры
 
-[vtuber_clusterisation_HDBSCAN_2+.html](vtuber_clusterisation_HDBSCAN_2+.html)
+[vtuber_clusterisation_HDBSCAN_3+.html](vtuber_clusterisation_HDBSCAN_3+.html)
 
 ### DBSCAN
 
