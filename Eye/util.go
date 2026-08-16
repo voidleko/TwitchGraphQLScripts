@@ -9,12 +9,10 @@ import (
 )
 
 const (
-	ApiUrl       = "https://gql.twitch.tv/gql"
-	ApiClientID  = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp"
-	MaxRetries   = 5
-	RetryWait    = 3 * time.Second
-	SleepWait    = 5 * time.Minute
-	MinFollowers = 500
+	ApiUrl      = "https://gql.twitch.tv/gql"
+	ApiClientID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp"
+	MaxRetries  = 5
+	RetryWait   = 3 * time.Second
 )
 
 func loadWithRetries(body io.Reader) ([]byte, error) {

@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 type BroadcastSettings struct {
 	Title string `json:"title"`
 }
@@ -120,11 +122,7 @@ type ViewersPageChannelData struct {
 }
 
 type ViewersPageUserData struct {
-	ID                string                           `json:"id"`
-	Login             string                           `json:"login"`
-	Stream            ViewersPageStreamData            `json:"stream"`
-	BroadcastSettings ViewersPageBroadcastSettingsData `json:"broadcastSettings"`
-	Channel           ViewersPageChannelData           `json:"channel"`
+	Channel ViewersPageChannelData `json:"channel"`
 }
 
 type ViewersPageResponseData struct {
@@ -134,4 +132,38 @@ type ViewersPageResponseData struct {
 type ViewersPageResponse struct {
 	Data   ViewersPageResponseData `json:"data"`
 	Errors []Error                 `json:"errors"`
+}
+
+type UserSettingsResponse struct {
+	PreferredLanguageTag string `json:"preferredLanguageTag"`
+}
+
+type UserDataResponse struct {
+	ID              string               `json:"id"`
+	Login           string               `json:"login"`
+	ProfileImageURL string               `json:"profileImageURL"`
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       *time.Time           `json:"updated_at"`
+	DeletedAt       *time.Time           `json:"deleted_at"`
+	Description     string               `json:"description"`
+	Settings        UserSettingsResponse `json:"settings"`
+}
+
+type UserDataResponseData struct {
+	User UserDataResponse `json:"user"`
+}
+
+type UserDataResponseesponse struct {
+	Data   UserDataResponseData `json:"data"`
+	Errors []Error              `json:"errors"`
+}
+
+type UserDataVariables struct {
+	ID    *string `json:"id"`
+	Login *string `json:"login"`
+}
+
+type UserDataRequest struct {
+	Query     string            `json:"query"`
+	Variables UserDataVariables `json:"variables"`
 }

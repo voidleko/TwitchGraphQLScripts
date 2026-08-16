@@ -30,21 +30,20 @@ query fetchUser($id: ID, $login: String) {
   user(id: $id, login: $login, lookupType: ALL) {
     id
     login
+    profileImageURL
+    created_at
+    updated_at
+    deleted_at
+    description
+    settings {
+      preferredLanguageTag
+    }
   }
 }
 `
 	ViewersPageQuery = `
 query fetchViewers($id: ID, $login: String) {
   user(id: $id, login: $login, lookupType: ALL) {
-    id
-    login
-    stream {
-      createdAt
-      viewersCount
-    }
-    broadcastSettings {
-      title
-    }
     channel {
       chatters {
         count
