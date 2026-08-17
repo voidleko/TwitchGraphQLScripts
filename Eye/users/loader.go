@@ -115,7 +115,8 @@ func ForceLoad(login string) UserData {
 
 	userId, err := strconv.ParseUint(userData.Data.User.ID, 10, 64)
 	if err != nil {
-		log.Panicf("Failed parse user ID: %v", err)
+		log.Printf("[WARN] Failed parse user ID %s: %v", userData.Data.User.ID, err)
+		userId = 0
 	}
 
 	return UserData{

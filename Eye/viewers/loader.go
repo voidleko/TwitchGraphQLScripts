@@ -7,6 +7,7 @@ import (
 	"log"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/alebik0/TwitchGraphQLScripts/Eye/loader"
 )
@@ -63,6 +64,8 @@ const (
 	ViewersPageQuery = `
 query fetchViewers($login: String) {
   user(login: $login, lookupType: ALL) {
+	id
+	login
     channel {
       chatters {
         count
@@ -74,6 +77,8 @@ query fetchViewers($login: String) {
   }
 }
 `
+	RepeatAmount = 15
+	Timeout      = 2 * time.Second
 )
 
 func prepareBody(login string) (io.Reader, error) {
@@ -92,36 +97,49 @@ func prepareBody(login string) (io.Reader, error) {
 }
 
 func loadPage(login string) ViewersPageUserData {
-	body, err := prepareBody(login)
-	if err != nil {
-		log.Panicf("Failed to prepare body: %v", err)
+	for i := range RepeatAmount {
+		body, err := prepareBody(login)
+		if err != nil {
+			log.Panicf("Failed to prepare body: %v", err)
+		}
+
+		respBody := loader.LoadUntilOk(body)
+
+		var viewersPage ViewersPageResponse
+		if err := json.Unmarshal([]byte(respBody), &viewersPage); err != nil {
+			log.Panicf("Failed unmarshal body: %v", err)
+		}
+
+		if len(viewersPage.Errors) > 0 {
+			log.Panic("loader.LoadUntilOk returned API errors")
+		}
+
+		if viewersPage.Data.User.Channel.Chatters.Count == 0 {
+			log.Printf("[%s] Detected chatters API blocking, timeout", login)
+			if i == RepeatAmount-1 {
+				return viewersPage.Data.User
+			}
+			time.Sleep(Timeout)
+			continue
+		}
+
+		return viewersPage.Data.User
 	}
 
-	respBody := loader.LoadUntilOk(body)
-
-	var viewersPage ViewersPageResponse
-	if err := json.Unmarshal([]byte(respBody), &viewersPage); err != nil {
-		log.Panicf("Failed unmarshal body: %v", err)
-	}
-
-	if len(viewersPage.Errors) > 0 {
-		log.Panic("loader.LoadUntilOk returned API errors")
-	}
-
-	return viewersPage.Data.User
+	panic("")
 }
 
 func ForceLoad(login string) []string {
 	var initialResult ViewersPageUserData
 
-	log.Printf("Loading initial viewers page")
+	log.Printf("[%s] Loading initial viewers page", login)
 	initialResult = loadPage(login)
 
 	for {
-		log.Printf("Loading update viewers page")
+		log.Printf("[%s] Loading update viewers page", login)
 		update := loadPage(login)
 		before := len(initialResult.Channel.Chatters.Viewers)
-		log.Printf("Update page: before: %d/%d", before, initialResult.Channel.Chatters.Count)
+		log.Printf("[%s] Update page: before: %d/%d", login, before, initialResult.Channel.Chatters.Count)
 		joinedViewers := initialResult.Channel.Chatters.Viewers
 		for _, newViewer := range update.Channel.Chatters.Viewers {
 			if !slices.Contains(joinedViewers, newViewer) {
@@ -130,8 +148,9 @@ func ForceLoad(login string) []string {
 		}
 		initialResult.Channel.Chatters.Viewers = joinedViewers
 		after := len(initialResult.Channel.Chatters.Viewers)
-		log.Printf("Update page: after: %d/%d", after, initialResult.Channel.Chatters.Count)
+		log.Printf("[%s] Update page: after: %d/%d", login, after, initialResult.Channel.Chatters.Count)
 		if after == before {
+			log.Printf("[%s] Update page break since no update", login)
 			break
 		}
 	}
@@ -140,6 +159,8 @@ func ForceLoad(login string) []string {
 	for i, chatter := range initialResult.Channel.Chatters.Viewers {
 		result[i] = chatter.Login
 	}
+
+	log.Printf("[%s] Completed loading viewers for %s", login, login)
 
 	return result
 }

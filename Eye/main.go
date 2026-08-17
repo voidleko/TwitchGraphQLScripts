@@ -12,12 +12,47 @@ import (
 )
 
 const (
-	ThreadPoolSize = 64
+	UsersParseThreadPoolSize   = 16
+	StreamsParseThreadPoolSize = 8
 )
 
-type ThreadPoolInput struct {
+type UsersParseThreadPoolInput struct {
 	Parse   database.StreamParse
 	Chatter string
+}
+type StreamsParseThreadPoolInput struct {
+	Parse         database.StreamParse
+	StreamerLogin string
+}
+
+func UserThreadPoolFunc(
+	saver *database.Saver,
+	usersCh <-chan UsersParseThreadPoolInput,
+) {
+	for input := range usersCh {
+		userData := users.ForceLoad(input.Chatter)
+		saver.SaveViewParse(
+			input.Parse.StreamParseID,
+			userData.ID,
+			userData.Login,
+			userData.ProfileImageURL,
+			userData.CreatedAt,
+			userData.UpdatedAt,
+			userData.DeletedAt,
+			userData.Description,
+			userData.Language,
+		)
+	}
+}
+
+func StreamsThreadPoolFunc(streamsCh <-chan StreamsParseThreadPoolInput, usersCh chan<- UsersParseThreadPoolInput) {
+	for input := range streamsCh {
+		vs := viewers.ForceLoad(input.StreamerLogin)
+
+		for _, chatter := range vs {
+			usersCh <- UsersParseThreadPoolInput{Parse: input.Parse, Chatter: chatter}
+		}
+	}
 }
 
 func main() {
@@ -30,62 +65,39 @@ func main() {
 	}
 	defer saver.Close()
 
-	// Run thread pool
-	ch := make(chan ThreadPoolInput, 1024)
-	for range ThreadPoolSize {
-		go func(ch <-chan ThreadPoolInput) {
-			for input := range ch {
-				log.Printf("Got thread pool input")
-
-				userData := users.ForceLoad(input.Chatter)
-				saver.SaveViewParse(
-					input.Parse.StreamParseID,
-					userData.ID,
-					userData.Login,
-					userData.ProfileImageURL,
-					userData.CreatedAt,
-					userData.UpdatedAt,
-					userData.DeletedAt,
-					userData.Description,
-					userData.Language,
-				)
-			}
-		}(ch)
+	// Run thread pools
+	usersCh := make(chan UsersParseThreadPoolInput, UsersParseThreadPoolSize)
+	streamsCh := make(chan StreamsParseThreadPoolInput, StreamsParseThreadPoolSize)
+	for range UsersParseThreadPoolSize {
+		go UserThreadPoolFunc(saver, usersCh)
+	}
+	for range StreamsParseThreadPoolSize {
+		go StreamsThreadPoolFunc(streamsCh, usersCh)
 	}
 
 	for {
-		log.Printf("Loading vtubers")
-
 		vtuberStreams := streams.ForceLoad()
 		parseData := saver.SaveParseData(time.Now())
-		log.Printf("INSERT INTO parse_data ID = %d", parseData.ParseID)
 
 		for _, vtuberStream := range vtuberStreams {
-			go func() {
-				streamParse := saver.SaveStreamParse(
-					parseData.ParseID,
-					vtuberStream.ID,
-					vtuberStream.Title,
-					vtuberStream.PreviewImageURL,
-					vtuberStream.ViewersCount,
-					vtuberStream.BroadcasterID,
-					vtuberStream.BroadcasterLogin,
-				)
-				log.Printf("INSERT INTO stream_parse ID = %d", streamParse.StreamParseID)
+			streamParse := saver.SaveStreamParse(
+				parseData.ParseID,
+				vtuberStream.ID,
+				vtuberStream.Title,
+				vtuberStream.PreviewImageURL,
+				vtuberStream.ViewersCount,
+				vtuberStream.BroadcasterID,
+				vtuberStream.BroadcasterLogin,
+			)
 
-				viewers := viewers.ForceLoad(streamParse.BroadcasterLogin)
-				log.Printf("Loaded stream viewers for %s, len = %d", streamParse.BroadcasterLogin, len(viewers))
-
-				for _, chatter := range viewers {
-					ch <- ThreadPoolInput{Parse: streamParse, Chatter: chatter}
-				}
-			}()
+			streamsCh <- StreamsParseThreadPoolInput{
+				Parse:         streamParse,
+				StreamerLogin: streamParse.BroadcasterLogin,
+			}
 		}
 
 		log.Printf("Parse %v completed\n", parseData)
 
-		break
+		time.Sleep(10 * time.Minute)
 	}
-
-	time.Sleep(30 * time.Second)
 }
