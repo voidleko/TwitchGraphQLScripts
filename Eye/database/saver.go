@@ -2,18 +2,21 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 type Saver struct {
-	mu         sync.Mutex
-	ctx        context.Context
-	connection *pgx.Conn
+	mu          sync.Mutex
+	ctx         context.Context
+	connection  *pgx.Conn
+	redisClient *redis.Client
 }
 
 const (
@@ -89,7 +92,28 @@ type ViewerParse struct {
 	Language        string
 }
 
-func NewSaver(ctx context.Context, user, password, host, port, database string) (*Saver, error) {
+type UserData struct {
+	UserID          uint64     `json:"userID"`
+	Login           string     `json:"login"`
+	ProfileImageURL string     `json:"profileImageURL"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	UpdatedAt       *time.Time `json:"updatedAt"`
+	DeletedAt       *time.Time `json:"deletedAt"`
+	Description     string     `json:"description"`
+	Language        string     `json:"language"`
+}
+
+func NewSaver(
+	ctx context.Context,
+	user,
+	password,
+	host,
+	port,
+	database,
+	redisHost,
+	redisPort,
+	redisPassword string,
+) (*Saver, error) {
 	conn, err := pgx.Connect(
 		ctx,
 		fmt.Sprintf(
@@ -105,14 +129,22 @@ func NewSaver(ctx context.Context, user, password, host, port, database string) 
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
 
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", redisHost, redisPort),
+		Password: redisPassword, // no password set
+		DB:       0,             // use default DB
+	})
+
 	return &Saver{
-		ctx:        ctx,
-		connection: conn,
+		ctx:         ctx,
+		connection:  conn,
+		redisClient: rdb,
 	}, nil
 }
 
 func (saver *Saver) Close() {
 	saver.connection.Close(saver.ctx)
+	saver.redisClient.Close()
 }
 
 func (saver *Saver) SaveParseData(t time.Time) ParseData {
@@ -230,4 +262,37 @@ func (saver *Saver) SaveViewParse(
 		log.Panicf("INSERT INTO viewer_parse error: %v", err)
 	}
 	return viewerParse
+}
+
+func (saver *Saver) ReadUserData(login string) *UserData {
+	result, err := saver.redisClient.Get(saver.ctx, login).Result()
+	if err == redis.Nil {
+		return nil
+	} else if err != nil {
+		log.Printf("[WARN] Failed read cached user data for user = %s", login)
+		return nil
+	} else {
+		var userData UserData
+		if err := json.Unmarshal([]byte(result), &userData); err != nil {
+			log.Printf("[WARN] Failed read cached user data for user = %s", login)
+			return nil
+		}
+		return &userData
+	}
+}
+
+func (saver *Saver) CacheUserData(userData UserData) {
+	userDataString, err := json.Marshal(userData)
+	if err != nil {
+		log.Printf("[WARN] Failed cache user data for user = %s", userData.Login)
+		return
+	}
+
+	err = saver.
+		redisClient.
+		Set(saver.ctx, userData.Login, string(userDataString), 24*time.Hour).
+		Err()
+	if err != nil {
+		log.Printf("[WARN] Failed cache user data for user = %s", userData.Login)
+	}
 }

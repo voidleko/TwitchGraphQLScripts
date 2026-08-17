@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"time"
 
 	database "github.com/alebik0/TwitchGraphQLScripts/Eye/database"
@@ -30,18 +31,33 @@ func UserThreadPoolFunc(
 	usersCh <-chan UsersParseThreadPoolInput,
 ) {
 	for input := range usersCh {
-		userData := users.ForceLoad(input.Chatter)
-		saver.SaveViewParse(
-			input.Parse.StreamParseID,
-			userData.ID,
-			userData.Login,
-			userData.ProfileImageURL,
-			userData.CreatedAt,
-			userData.UpdatedAt,
-			userData.DeletedAt,
-			userData.Description,
-			userData.Language,
-		)
+		cachedUserData := saver.ReadUserData(input.Chatter)
+		if cachedUserData == nil {
+			userData := users.ForceLoad(input.Chatter)
+			saver.SaveViewParse(
+				input.Parse.StreamParseID,
+				userData.ID,
+				userData.Login,
+				userData.ProfileImageURL,
+				userData.CreatedAt,
+				userData.UpdatedAt,
+				userData.DeletedAt,
+				userData.Description,
+				userData.Language,
+			)
+		} else {
+			saver.SaveViewParse(
+				input.Parse.StreamParseID,
+				cachedUserData.UserID,
+				cachedUserData.Login,
+				cachedUserData.ProfileImageURL,
+				cachedUserData.CreatedAt,
+				cachedUserData.UpdatedAt,
+				cachedUserData.DeletedAt,
+				cachedUserData.Description,
+				cachedUserData.Language,
+			)
+		}
 	}
 }
 
@@ -59,7 +75,15 @@ func main() {
 	log.SetPrefix("[LOG] ")
 
 	ctx := context.Background()
-	saver, err := database.NewSaver(ctx, "admin", "admin", "localhost", "5432", "eyeofvoidleko")
+	user := os.Getenv("EYE_OF_VOIDLEKO_DATABASE_USER")
+	password := os.Getenv("EYE_OF_VOIDLEKO_DATABASE_PASSWORD")
+	host := os.Getenv("EYE_OF_VOIDLEKO_DATABASE_HOST")
+	port := os.Getenv("EYE_OF_VOIDLEKO_DATABASE_PORT")
+	dname := os.Getenv("EYE_OF_VOIDLEKO_DATABASE_DNAME")
+	redisHost := os.Getenv("EYE_OF_VOIDLEKO_REDIS_HOST")
+	redisPort := os.Getenv("EYE_OF_VOIDLEKO_REDIS_PORT")
+	redisPassword := os.Getenv("EYE_OF_VOIDLEKO_REDIS_PASSWORD")
+	saver, err := database.NewSaver(ctx, user, password, host, port, dname, redisHost, redisPort, redisPassword)
 	if err != nil {
 		log.Panicf("Failed to create saver: %v", err)
 	}
