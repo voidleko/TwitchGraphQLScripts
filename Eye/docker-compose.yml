@@ -23,7 +23,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: eye-of-voidleko-app:latest
     restart: always
     depends_on:
       - eye-of-voidleko-database

@@ -102,7 +102,21 @@ func ForceLoad(login string) UserData {
 		log.Panicf("failed prepare load stream page body: %v", err)
 	}
 
-	respBody := loader.LoadUntilOk(body)
+	respBody, err := loader.LoadWithRetries(body)
+	if err != nil {
+		log.Printf("Failed to load user data with login %s: %v", login, err)
+
+		return UserData{
+			ID:              0,
+			Login:           login,
+			ProfileImageURL: "",
+			CreatedAt:       time.Now(),
+			UpdatedAt:       nil,
+			DeletedAt:       nil,
+			Description:     "",
+			Language:        "UNDEF",
+		}
+	}
 
 	var userData UserDataResponseesponse
 	if err := json.Unmarshal([]byte(respBody), &userData); err != nil {

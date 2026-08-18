@@ -39,8 +39,10 @@ type ViewersPageViewersData struct {
 }
 
 type ViewersPageChattersData struct {
-	Count   uint32                   `json:"count"`
-	Viewers []ViewersPageViewersData `json:"viewers"`
+	Count      uint32                   `json:"count"`
+	Moderators []ViewersPageViewersData `json:"moderators"`
+	Viewers    []ViewersPageViewersData `json:"viewers"`
+	Vips       []ViewersPageViewersData `json:"vips"`
 }
 
 type ViewersPageChannelData struct {
@@ -69,7 +71,13 @@ query fetchViewers($login: String) {
     channel {
       chatters {
         count
+        moderators {
+          login
+        }
         viewers {
+          login
+        }
+        vips {
           login
         }
       }
@@ -97,13 +105,18 @@ func prepareBody(login string) (io.Reader, error) {
 }
 
 func loadPage(login string) ViewersPageUserData {
-	for i := range RepeatAmount {
+	for range RepeatAmount {
 		body, err := prepareBody(login)
 		if err != nil {
 			log.Panicf("Failed to prepare body: %v", err)
 		}
 
-		respBody := loader.LoadUntilOk(body)
+		respBody, err := loader.LoadWithRetries(body)
+		if err != nil {
+			log.Printf("[%s] Failed to load stream data for user with login, timeout: %v", login, err)
+			time.Sleep(Timeout)
+			continue
+		}
 
 		var viewersPage ViewersPageResponse
 		if err := json.Unmarshal([]byte(respBody), &viewersPage); err != nil {
@@ -116,9 +129,6 @@ func loadPage(login string) ViewersPageUserData {
 
 		if viewersPage.Data.User.Channel.Chatters.Count == 0 {
 			log.Printf("[%s] Detected chatters API blocking, timeout", login)
-			if i == RepeatAmount-1 {
-				return viewersPage.Data.User
-			}
 			time.Sleep(Timeout)
 			continue
 		}
@@ -126,41 +136,52 @@ func loadPage(login string) ViewersPageUserData {
 		return viewersPage.Data.User
 	}
 
-	panic("")
+	log.Printf("[%s] Failed to load stream page, return empty", login)
+
+	return ViewersPageUserData{
+		Channel: ViewersPageChannelData{
+			Chatters: ViewersPageChattersData{
+				Count:      0,
+				Moderators: make([]ViewersPageViewersData, 0),
+				Viewers:    make([]ViewersPageViewersData, 0),
+				Vips:       make([]ViewersPageViewersData, 0),
+			},
+		},
+	}
 }
 
 func ForceLoad(login string) []string {
-	var initialResult ViewersPageUserData
-
-	log.Printf("[%s] Loading initial viewers page", login)
-	initialResult = loadPage(login)
+	result := make([]string, 0)
 
 	for {
-		log.Printf("[%s] Loading update viewers page", login)
-		update := loadPage(login)
-		before := len(initialResult.Channel.Chatters.Viewers)
-		log.Printf("[%s] Update page: before: %d/%d", login, before, initialResult.Channel.Chatters.Count)
-		joinedViewers := initialResult.Channel.Chatters.Viewers
-		for _, newViewer := range update.Channel.Chatters.Viewers {
-			if !slices.Contains(joinedViewers, newViewer) {
-				joinedViewers = append(joinedViewers, newViewer)
+		pageResult := loadPage(login)
+		beforeSize := len(result)
+
+		for _, chatter := range pageResult.Channel.Chatters.Moderators {
+			if !slices.Contains(result, chatter.Login) {
+				result = append(result, chatter.Login)
 			}
 		}
-		initialResult.Channel.Chatters.Viewers = joinedViewers
-		after := len(initialResult.Channel.Chatters.Viewers)
-		log.Printf("[%s] Update page: after: %d/%d", login, after, initialResult.Channel.Chatters.Count)
-		if after == before {
+		for _, chatter := range pageResult.Channel.Chatters.Viewers {
+			if !slices.Contains(result, chatter.Login) {
+				result = append(result, chatter.Login)
+			}
+		}
+		for _, chatter := range pageResult.Channel.Chatters.Vips {
+			if !slices.Contains(result, chatter.Login) {
+				result = append(result, chatter.Login)
+			}
+		}
+
+		afterSize := len(result)
+		log.Printf("[%s] Update page: %d -> %d / %d", login, beforeSize, afterSize, pageResult.Channel.Chatters.Count)
+		if afterSize == beforeSize {
 			log.Printf("[%s] Update page break since no update", login)
 			break
 		}
 	}
 
-	result := make([]string, len(initialResult.Channel.Chatters.Viewers))
-	for i, chatter := range initialResult.Channel.Chatters.Viewers {
-		result[i] = chatter.Login
-	}
-
-	log.Printf("[%s] Completed loading viewers for %s", login, login)
+	log.Printf("[%s] Completed loading viewers", login)
 
 	return result
 }

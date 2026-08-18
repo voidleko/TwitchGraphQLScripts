@@ -146,7 +146,11 @@ func ForceLoad() []StreamData {
 			log.Panicf("failed prepare load stream page body: %v", err)
 		}
 
-		respBody := loader.LoadUntilOk(body)
+		respBody, err := loader.LoadWithRetries(body)
+		if err != nil {
+			log.Printf("[ERROR] Failed to load streams page, interrupt parser: %v", err)
+			break
+		}
 
 		var streamsData VtubersPageResponse
 		if err := json.Unmarshal([]byte(respBody), &streamsData); err != nil {

@@ -86,20 +86,3 @@ func LoadWithRetries(body io.Reader) ([]byte, error) {
 
 	return nil, fmt.Errorf("failed to load with retries")
 }
-
-func LoadUntilOk(body io.Reader) []byte {
-	for attempt := 0; ; attempt++ {
-		if attempt > 0 {
-			log.Printf("Retry %d/%d after %v", attempt, MaxRetries, RetryWait)
-			time.Sleep(RetryWait)
-		}
-
-		response, err := LoadOnce(body)
-		if err != nil {
-			fmt.Printf("[ERROR] Failed send api request: %v", err)
-			continue
-		}
-
-		return response
-	}
-}
