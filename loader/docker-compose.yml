@@ -1,0 +1,9 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: my-go-app:latest
+    restart: always
+    volumes:
+      - ./database.db:/app/database.db
